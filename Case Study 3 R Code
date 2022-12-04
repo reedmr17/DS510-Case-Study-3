@@ -1,0 +1,69 @@
+#Link to data set https://archive.ics.uci.edu/ml/datasets/Heart+Disease
+
+#Classification problem 
+library(shiny)
+library(caret)
+library(party)
+library(caTools)
+library(e1071)
+library(ROCR)
+library(rpart)
+library(dplyr)
+library(ggplot2)
+
+
+data = read.csv("C:\\Users\\mreed\\OneDrive - Worcester Polytechnic Institute (wpi.edu)\\Classes\\DS 501\\Case Study 3 processed cleveland data.csv", header = TRUE, sep=",")
+
+data = select(data, -8)
+### classification - DT ###
+
+data[c(10)] <- lapply(data[c(10)], function(x) c(scale(x)))
+normalize <- function(x){((x-min(x)) /(max(x)-min(x)))}
+data[c(9,13)] <- lapply(data[c(9,13)], normalize)
+
+
+split = sample.split(data$Diagnosis, SplitRatio = 0.75)
+training_set = subset(data, split == TRUE)
+test_set = subset(data, split == FALSE)
+
+
+
+classifier = rpart(Diagnosis~., data = training_set, method = 'class')
+plot(classifier);text(classifier)
+
+
+test_set2 = select(test_set, -13)
+y_pred = predict(classifier, test_set2, type="class")
+
+y <- test_set[,13]
+
+pred <- prediction(as.numeric(y_pred),as.numeric(y))
+RP_perf <- performance(pred, "prec", "rec")
+
+
+plot(RP_perf,main=" Precesion vs Recall")
+ROC_perf <- performance(pred, "tpr", "fpr")
+plot(ROC_perf,,main="True + rate vs False + rate")
+auc_tmp <- performance(pred, "auc")
+auc <- as.numeric(auc_tmp@y.values)
+cat("ROC Curve Accuracy - 
+    DT=", round(auc*100,3))
+
+length(y_pred)
+length(y)
+
+
+confusionMatrix(table(y_pred, y))
+
+#pruning
+printcp(classifier)
+opt <- which.min(classifier$cptable[,"xerror"])
+
+cp <- classifier$cptable[opt, "CP"]
+
+pruned_model <- prune(classifier,cp)
+
+plot(pruned_model);text(pruned_model)
+
+Classifier_pruned <- predict(pruned_model,test_set2,type="class")
+confusionMatrix(table(Classifier_pruned, y))
